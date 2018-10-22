@@ -36,7 +36,7 @@
 
 #define BAUDRATE B115200                                                
 //#define MODEMDEVICE "/dev/ttyS0"        //Conexió IGEP - Arduino
-#define MODEMDEVICE "/dev/ttyACM0"         //Conexió directa PC(Linux) - Arduino                                   
+#define MODEMDEVICE "/dev/ttyACM0"         //Conexió directa PC(Linux) - Arduino (ACM0) Arduchino (USB0)                                   
 #define _POSIX_SOURCE 1 /* POSIX compliant source */   
 
 /* VARIABLES GLOBALS*/
@@ -62,6 +62,17 @@ int Temperatura_actual;
 int x;
 
 struct termios oldtio,newtio;  
+
+//Declaració variables funció main                                                                   
+	int i=0, fd, res=0,m=1, lectures=0, pos=0;                                                     
+	int temps; 
+	float array[3600];
+	float graus=0, maxim=0, minim=99;
+	int mostres = 0;
+	int comp=0;
+	char buf[255];
+	char missatge[255];
+	int comparacio=0;
 
 //configuració de la comunicació sèrie
 int	ConfigurarSerie(void)
@@ -94,6 +105,13 @@ int	ConfigurarSerie(void)
 		
 	return fd;
 }  
+
+//Funció per tancar la comunicació sèrie
+void TancarSerie(int fd)
+{
+	tcsetattr(fd,TCSANOW,&oldtio);
+	close(fd);
+}
 
 //Función para envirar mensajes al arduino              
 void enviar(char *missatge, int res, int fd)
@@ -134,16 +152,7 @@ void rebre (char *buf, int fd, int temps)
 
 int main(int argc, char **argv)                                                               
 {   
-    //Declaració variables funció main                                                                   
-	int i=0, fd, res=0,m=1, lectures=0, pos=0;                                                     
-	int temps; 
-	float array[3600];
-	float graus=0, maxim=0, minim=99;
-	int mostres = 0;
-	int comp=0;
-	char buf[255];
-	char missatge[255];
-	int comparacio=0;
+    
 	memset(buf,'\0',256);
 	fd = ConfigurarSerie();
 	
@@ -187,9 +196,7 @@ if (strncmp(buf,"AM0Z",4)==0)
 		if (comp==comparacio+temps)
 		{
 			//S'envien i es reben els diferetns missatges amb l'arduino
-			sprintf(missatge,"AS131Z");//encdre led13
-			enviarled(missatge,res,fd);
-			rebreled(buf, fd, temps);
+			
 			sprintf(missatge,"ACZ");//confimació ok
 			enviar(missatge,res,fd);
 			memset(buf,'\0',256);
@@ -199,9 +206,7 @@ if (strncmp(buf,"AM0Z",4)==0)
 			graus=((buf[5]-'0')*10+(buf[6]-'0')+(buf[7]-'0')*0.1+(buf[8 	]-'0')*0.01);//es tradueixen els graus del missatge (string) a float
 			printf("GRAUS: %.02f\n",graus);//temrpeatura amb deciamals per pantalla
 			memset(buf,'\0',256);
-			sprintf(missatge,"AS130Z");//apagar led 13
-			enviarled(missatge, res, fd);
-			rebreled(buf, fd, temps);
+			
 			lectures++; //variable per saber el nombre de lectures fetes
 			pos++; //posició de l'array circular
 		}
@@ -254,7 +259,7 @@ void regulacio_Temp (int T,int Treg){
 							//Si el ventilador no estava ences posem variable ventilador a 1 
 		printf("Encendre ventilador\n");
 		
-		missatge="AS131Z";//missatge per encendre led13
+		sprintf(missatge,"AS131Z");//missatge per encendre led13
 		enviar(missatge, res, fd);
 	
 		printf("mensaje enviado\n");
@@ -276,7 +281,7 @@ void regulacio_Temp (int T,int Treg){
 	else if (T<Treg && (vent==2||vent==1)){
 		printf("Apagar ventilador\n");
 		
-		missatge="AS130Z";//misatge per apagar el led13
+		sprintf(missatge,"AS130Z");//misatge per apagar el led13
 		enviar(missatge, res, fd);
 	
 		printf("mensaje enviado\n");
@@ -286,7 +291,7 @@ void regulacio_Temp (int T,int Treg){
 		printf("mensaje recibido\n");/*<---------ENVIAR ORDRE ARDUINO APAGAR VENT*/
 		vent=0;
 	}
-	else {vent==0;}
+	else {vent=0;}
 
 	printf("Taula temperatura\n"); /*<---------ESCRIURE TAULA TEMPERATURES SQL*/
 	printf("Temp: %d\n",T);
@@ -349,7 +354,7 @@ void callback(union sigval si)
     printf("%s\n",msg);
 }
 
-int main(int argc, char ** argv)
+int main2(int argc, char ** argv)
 {
 
     timer_t rutina;
